@@ -1,4 +1,4 @@
-module github.com/myhops/otelcontrib/k8sconfig
+module github.com/myhops/k8sconfig
 
 go 1.24.2
 
