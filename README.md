@@ -15,6 +15,7 @@ receiver:
       endpoint: ${k8sconfig:configMap:my-namespace:my-config-map:data:key1}
 ```
 
+First build seems to work.
 
 
 ## References

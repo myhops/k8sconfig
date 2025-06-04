@@ -77,7 +77,7 @@ s, err := getSecret(ctx, namespace, name)
 // Retreive gets the data from either a secret or a config map using the following schema
 //	k8sconfig:configMap:namespace:<configmap name>:<data or binaryData>:<item>  for a configmap
 //	k8sconfig:secret:namespace:<secret name>:<data or stringData>:<item>  for a secret
-func (fmp *provider) Retrieve(ctx context.Context, uri string, _ confmap.WatcherFunc) (*confmap.Retrieved, error) {
+func (p *provider) Retrieve(ctx context.Context, uri string, _ confmap.WatcherFunc) (*confmap.Retrieved, error) {
 
 	parts := strings.Split(uri, ":")
 	if l := len(parts ); l != 6 {
