@@ -2,11 +2,12 @@ package k8sconfig
 
 import (
 	"context"
+	"os"
 
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
-	corev1 "k8s.io/api/core/v1"
 )
 
 func getClientSet() (*kubernetes.Clientset, error) {
@@ -14,6 +15,7 @@ func getClientSet() (*kubernetes.Clientset, error) {
 	if err != nil {
 		panic(err.Error())
 	}
+	
 	clientset, err := kubernetes.NewForConfig(config)
 	if err != nil {
 		return nil, err
@@ -21,7 +23,26 @@ func getClientSet() (*kubernetes.Clientset, error) {
 	return clientset, nil
 }
 
+const namespaceFile = "/var/run/secrets/kubernetes.io/serviceaccount/namespace"
+
+// get the current namespace
+func getCurrentNamespace() (string, error) {
+	data, err := os.ReadFile(namespaceFile)
+	if err != nil {
+		return "", err
+	}
+	return string(data), nil
+}
+
 func getConfigMap(ctx context.Context, namespace string, name string) (*corev1.ConfigMap, error) {
+	if namespace == "." {
+		n, err := getCurrentNamespace()
+		if err != nil {
+			return nil, err
+		}
+		namespace = n
+	}
+
 	clientset, err := getClientSet()
 	if err != nil {
 		return nil, err
@@ -34,6 +55,14 @@ func getConfigMap(ctx context.Context, namespace string, name string) (*corev1.C
 }
 
 func getSecret(ctx context.Context, namespace string, name string) (*corev1.Secret, error) {
+	if namespace == "." {
+		n, err := getCurrentNamespace()
+		if err != nil {
+			return nil, err
+		}
+		namespace = n
+	}
+
 	clientset, err := getClientSet()
 	if err != nil {
 		return nil, err

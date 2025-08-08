@@ -3,27 +3,15 @@ package k8sconfig
 import (
 	"context"
 	"fmt"
-	"net/url"
 	"strings"
 
 	"go.opentelemetry.io/collector/confmap"
 	"go.uber.org/zap"
 )
 
-const schemeName = "k8scfg"
-
 type provider struct {
 	// Add k8s credentials
 	logger *zap.Logger
-}
-
-// valueSpec contains the result of the parseURI
-type valueSpec struct {
-	kind string
-	namespace string
-	name string
-	dataType string
-	key string
 }
 
 func NewFactory() confmap.ProviderFactory {
@@ -32,87 +20,45 @@ func NewFactory() confmap.ProviderFactory {
 
 func newProvider(settings confmap.ProviderSettings) confmap.Provider {
 	return &provider{
-		logger: settings.Logger,
+		logger: settings.Logger.With(zap.String("provider", "k8scfg")),
 	}
 }
 
-func parseURI(uri string) (*valueSpec, error) {
-	u, err := url.Parse(uri)
-	if err != nil {
-		return nil, err
-	}
-
-	// Test scheme
-	if u.Scheme != schemeName {
-		return nil, fmt.Errorf("expected k8scfg scheme")
-	}
-	// Opaque should be set
-	if u.Opaque == "" {
-		return nil, fmt.Errorf("not opaque")
-	}
-
-	parts := strings.Split(u.Opaque, "/")
-	if len(parts) != 5 {
-		return nil, fmt.Errorf("need 5 parts, got %d", len(u.Opaque))
-	}
-
-	return &valueSpec{
-		kind: parts[0],
-		namespace: parts[1],
-		name: parts[2],
-		dataType: parts[3],
-		key: parts[4],
-	}, nil
-}
-
-func (v *valueSpec) validate() error {
-	return nil
-}
-
-func getFromConfigMap(ctx context.Context, namespace string, name string, field string, item string) ([]byte, error) {
-	// first check the field type
-	if field != "data" && field != "binaryData" {
-		return nil, fmt.Errorf("field must be either data or binaryData")
-	}
-
-	cm, err := getConfigMap(ctx, namespace, name)
+func getFromConfigMap(ctx context.Context, spec *valueSpec) ([]byte, error) {
+	cm, err := getConfigMap(ctx, spec.namespace, spec.name)
 	if err != nil {
 		return nil, err
 	}
 
 	var res []byte
-	switch field {
+	switch spec.dataType {
 	case "data":
-		res = []byte(cm.Data[item])
+		res = []byte(cm.Data[spec.key])
 	case "binaryData":
-		res = cm.BinaryData[item]
+		res = cm.BinaryData[spec.key]
 	}
 	if len(res) == 0 {
-		return nil, fmt.Errorf("%s[%s] is empty", field, item)
+		return nil, fmt.Errorf("%s[%s] is empty", spec.dataType, spec.key)
 	}
 	return res, nil
 }
 
-func getFromSecret(ctx context.Context, namespace string, name string, field string, item string) ([]byte, error) {
-	// first check the field type
-	if field != "data" && field != "binaryData" {
-		return nil, fmt.Errorf("field must be either data or binaryData")
-	}
+func getFromSecret(ctx context.Context, spec *valueSpec) ([]byte, error) {
 
-	s, err := getSecret(ctx, namespace, name)
+	s, err := getSecret(ctx, spec.namespace, spec.name)
 	if err != nil {
 		return nil, err
 	}
 
 	var res []byte
-	switch field {
+	switch spec.dataType {
 	case "data":
-		res = s.Data[item]
-	case "binaryData":
-		res = []byte(s.StringData[item])
+		res = s.Data[spec.key]
+	case "stringData":
+		res = []byte(s.StringData[spec.key])
 	}
 	if len(res) == 0 {
-		return nil, fmt.Errorf("%s[%s] is empty", field, item)
+		return nil, fmt.Errorf("%s[%s] is empty", spec.dataType, spec.key)
 	}
 	return res, nil
 }
@@ -124,25 +70,22 @@ func getFromSecret(ctx context.Context, namespace string, name string, field str
 func (p *provider) Retrieve(ctx context.Context, uri string, _ confmap.WatcherFunc) (*confmap.Retrieved, error) {
 
 	// use uri to parse
-
-	parts := strings.Split(uri, ":")
-	if l := len(parts); l != 6 {
-		return nil, fmt.Errorf("number of parts must be 6, got %v", l)
-	}
-
-	if parts[0] != schemeName {
-		return nil, fmt.Errorf("%q uri is not supported by %q provider", uri, schemeName)
+	spec, err := parseURI(uri)
+	if err != nil {
+		err := fmt.Errorf("error parsing uri: %w", err)
+		p.logger.Error("parsing error", zap.Error(err))
+		return nil, err
 	}
 
 	var res []byte
-	var err error
-	switch strings.ToLower(parts[1]) {
+	switch strings.ToLower(spec.kind) {
 	case "configmap":
-		res, err = getFromConfigMap(ctx, parts[2], parts[3], parts[4], parts[5])
+		res, err = getFromConfigMap(ctx, spec)
 	case "secret":
-		res, err = getFromSecret(ctx, parts[2], parts[3], parts[4], parts[5])
+		res, err = getFromSecret(ctx, spec)
 	}
 	if err != nil {
+		p.logger.Error("error retrieving the value", zap.Error(err))
 		return nil, err
 	}
 

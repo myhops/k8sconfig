@@ -16,7 +16,7 @@ func Test_parseURI(t *testing.T) {
 		wantErr bool
 	}{
 		{
-			name: "valid uri",
+			name: "valid secret uri",
 			args: args{
 				uri: "k8scfg:secret/ns1/secret1/data/key",
 			},
@@ -28,6 +28,34 @@ func Test_parseURI(t *testing.T) {
 				key:       "key",
 			},
 			wantErr: false,
+		},
+		{
+			name: "valid secret uri with dot namespace",
+			args: args{
+				uri: "k8scfg:secret/./secret1/data/key",
+			},
+			want: &valueSpec{
+				kind:      "secret",
+				namespace: ".",
+				name:      "secret1",
+				dataType:  "data",
+				key:       "key",
+			},
+			wantErr: false,
+		},
+		{
+			name: "invalid dataType secret",
+			args: args{
+				uri: "k8scfg:secret/./secret1/binaryData/key",
+			},
+			wantErr: true,
+		},
+		{
+			name: "invalid dataType configMap",
+			args: args{
+				uri: "k8scfg:configMap/./secret1/stringData/key",
+			},
+			wantErr: true,
 		},
 		{
 			name: "not opaque uri",
