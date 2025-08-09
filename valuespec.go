@@ -7,8 +7,6 @@ import (
 	"strings"
 )
 
-const schemeName = "k8scfg"
-
 // valueSpec contains the result of the parseURI
 type valueSpec struct {
 	kind      string

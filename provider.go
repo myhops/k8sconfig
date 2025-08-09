@@ -9,6 +9,8 @@ import (
 	"go.uber.org/zap"
 )
 
+const schemeName = "k8scfg"
+
 type provider struct {
 	// Add k8s credentials
 	logger *zap.Logger
@@ -19,8 +21,13 @@ func NewFactory() confmap.ProviderFactory {
 }
 
 func newProvider(settings confmap.ProviderSettings) confmap.Provider {
+	l := settings.Logger
+
+	if l == nil {
+		l = zap.NewNop()
+	}
 	return &provider{
-		logger: settings.Logger.With(zap.String("provider", "k8scfg")),
+		logger: l.With(zap.String("provider", schemeName)),
 	}
 }
 
@@ -44,7 +51,6 @@ func getFromConfigMap(ctx context.Context, spec *valueSpec) ([]byte, error) {
 }
 
 func getFromSecret(ctx context.Context, spec *valueSpec) ([]byte, error) {
-
 	s, err := getSecret(ctx, spec.namespace, spec.name)
 	if err != nil {
 		return nil, err
@@ -92,7 +98,8 @@ func (p *provider) Retrieve(ctx context.Context, uri string, _ confmap.WatcherFu
 	return confmap.NewRetrievedFromYAML(res)
 }
 
-func (*provider) Scheme() string {
+func (p *provider) Scheme() string {
+	p.logger.Info("returning scheme". zap.String("scheme", schemeName))
 	return schemeName
 }
 
