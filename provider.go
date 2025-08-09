@@ -99,7 +99,7 @@ func (p *provider) Retrieve(ctx context.Context, uri string, _ confmap.WatcherFu
 }
 
 func (p *provider) Scheme() string {
-	p.logger.Info("returning scheme". zap.String("scheme", schemeName))
+	p.logger.Info("returning scheme", zap.String("scheme", schemeName))
 	return schemeName
 }
 
