@@ -34,7 +34,7 @@ func parseURI(uri string) (*valueSpec, error) {
 
 	parts := strings.Split(u.Opaque, "/")
 	if len(parts) != 5 {
-		return nil, fmt.Errorf("need 5 parts, got %d", len(u.Opaque))
+		return nil, fmt.Errorf("need 5 parts, got %d", len(parts))
 	}
 
 	vs := &valueSpec{
